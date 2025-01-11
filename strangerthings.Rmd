@@ -1,0 +1,478 @@
+---
+title: "Stranger Things"
+author: ""
+date: 
+output: html_document
+---
+
+```{r, results='hide',message=FALSE,warning=FALSE,echo=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, results='hide',message=FALSE,warning=FALSE,echo=FALSE}
+library(rvest)
+library(dplyr)
+library(tidyverse)
+library(purrr)
+library(stringr)
+library(ggplot2)
+library(lubridate)
+library(plotly)
+
+
+```
+
+
+
+```{r, results='hide',message=FALSE,warning=FALSE,echo=FALSE}
+#SEZONY
+#ocena sezonow
+w <- paste0("https://www.filmweb.pl/serial/Stranger+Things-2016-750359/season/", 1:4)
+
+
+numer_sezonu <- c()
+ocena_sezonu <- c()
+
+
+for(i in w){
+  #ocena_sezon
+  ocena <- read_html(i) %>% 
+  html_node(".filmRating__rateValue") %>% 
+  html_text()
+  ocena <- gsub(",", ".", ocena)
+  
+  #numer_sezonu
+  
+  numer<-read_html(i) %>% 
+    html_nodes(".filmHeaderSection__info") %>%
+    html_node(".filmHeaderSection__title") %>% 
+    html_text()
+
+  numer_sezonu <- c(numer_sezonu, numer)
+  ocena_sezonu <- c(ocena_sezonu, ocena)
+}
+
+# Create a data frame
+sezony <- data.frame(numer_sezonu = numer_sezonu, ocena_sezonu = ocena_sezonu)
+
+# Print the data frame
+print(sezony)
+
+```
+
+
+```{r, results='hide',message=FALSE,warning=FALSE,echo=FALSE}
+# ODCINKI
+sezon <- c("1/1","1/2","1/3","1/4","1/5","1/6","1/7","1/8",
+           "2/1","2/2","2/3","2/4","2/5","2/6","2/7","2/8","2/9",
+           "3/1","3/2","3/3","3/4","3/5","3/6","3/7","3/8",
+           "4/1","4/2","4/3","4/4","4/5","4/6","4/7","4/8","4/9") 
+Sezon<-c("1","1","1","1","1","1","1","1",
+           "2","2","2","2","2","2","2","2","2",
+           "3","3","3","3","3","3","3","3",
+           "4","4","4","4","4","4","4","4","4")
+
+
+
+w <- paste0("https://www.filmweb.pl/serial/Stranger+Things-2016-750359/episode/", sezon)
+
+tytuly <- c()
+daty <- c()
+czas_odc <- c()
+oceny <- c()
+ilosc_oceny <- c()
+
+odcinki <- append(append(1:8, 1:9), append(1:8, 1:9))
+
+# Funkcja do przekształcania ciągu znaków na liczbę minut
+przekształć_na_minuty <- function(czas) {
+  # Podziel ciąg znaków na części
+  czasy <- strsplit(czas, " ")[[1]]
+  
+  # Sprawdź czy są godziny i minuty w ciągu
+  if ("godz." %in% czasy) {
+    godziny <- as.numeric(czasy[which(czasy == "godz.") - 1])
+  } else {
+    godziny <- 0
+  }
+  
+  if ("min." %in% czasy) {
+    minuty <- as.numeric(czasy[which(czasy == "min.") - 1])
+  } else {
+    minuty <- 0
+  }
+  
+  # Zamień godziny na minuty i dodaj do nich pozostałe minuty
+  wynik <- godziny * 60 + minuty
+  
+  return(wynik)
+}
+
+for(i in w){
+  # tytul
+  tytul <- read_html(i) %>% 
+    html_nodes(".filmCoverSection__metaGroup") %>%
+    html_node(".no-margin") %>% 
+    html_text()
+  
+  # data_premiery
+  data <- read_html(i) %>% 
+    html_nodes(".filmCoverSection__metaGroup") %>%
+    html_node(".filmCoverSection__date") %>% 
+    html_text()
+
+  # czas_odcinka     
+  czas <- read_html(i) %>% 
+    html_nodes(".filmCoverSection__metaGroup") %>%
+    html_node(".filmCoverSection__duration") %>% 
+    html_text()
+  
+  # Funkcja do przekształcenia czasu na liczbę minut
+  czas_w_minutach <- przekształć_na_minuty(czas)
+  
+  # ocena
+  ocena <- read_html(i) %>% 
+    html_nodes(".filmCoverSection__metaGroup") %>%
+    html_node(".filmRating__rateValue") %>% 
+    html_text()
+  
+  # ilosc_ocen
+  ilosc <- read_html(i) %>% 
+    html_nodes(".filmCoverSection__metaGroup") %>%
+    html_node(".filmRating__count") %>% 
+    html_text() %>% 
+    str_replace_all(" ", "") %>% 
+    parse_number()
+    
+  # Append values to vectors
+  tytuly <- c(tytuly, tytul)
+  daty <- c(daty, data)
+  czas_odc <- c(czas_odc, czas_w_minutach)
+  oceny <- c(oceny, ocena)
+  ilosc_oceny <- c(ilosc_oceny, ilosc)
+}
+
+# Create a data frame
+Odcinki <- data.frame(sezon,Sezon,odcinki, Tytul = tytuly, Data = daty, Czas = czas_odc, Ocena = oceny, IloscOcen = ilosc_oceny)
+
+
+# Print the data frame
+print(Odcinki)
+
+```
+
+
+
+```{r, results='hide',message=FALSE,warning=FALSE,echo=FALSE}
+#AKTOR_ROLA_ODC-NA-AKTORA
+
+library(rvest)
+
+url <- paste0("https://www.filmweb.pl/serial/Stranger+Things-2016-750359/cast/actors")
+
+# Pobierz stronę raz
+page <- read_html(url)
+
+bohaterowie <- c()
+role <- c()
+
+cast_elements <- page %>%
+  html_nodes(".filmFullCastSection__list .castRoleListElement__info")
+
+ilosc_odcinkow <- c(34, 34, 34, 34, 34, 34, 34, 34, 34, 34,
+              33, 26, 21, 21, 20, 20, 19, 17, 17, 16,
+              15, 14, 11, 11, 10, 10, 9, 9, 9, 9,
+              9, 9, 9, 9, 9, 7, 7, 7, 7, 6,
+              6, 6, 5, 5, 5, 5, 4, 4, 4, 4,
+              4, 4, 4, 4, 4, 4, 4, 0, 0, 0, 0)
+
+for (i in cast_elements) {
+  bohater <- i %>% html_text() %>% trimws()
+  rola <- i %>% html_element("span") %>% html_text() %>% trimws()
+  
+  bohaterowie <- c(bohaterowie, bohater)
+  role <- c(role, rola)
+}
+
+# Ensure both vectors have the same length
+max_length <- max(length(bohaterowie), length(role), length(ilosc_odcinkow))
+bohaterowie <- rep(c(bohaterowie, rep(NA, max_length - length(bohaterowie))), length.out = max_length)
+role <- rep(c(role, rep(NA, max_length - length(role))), length.out = max_length)
+
+aktorzy <- data.frame(Bohater = bohaterowie, Rola = role, ilosc_granych_odcinkow = ilosc_odcinkow)
+
+
+#usuwa ostatni wiersz
+aktorzy <- aktorzy[-nrow(aktorzy), ]
+
+# Find the index of the last row
+last_row_index <- nrow(aktorzy)
+
+# Replace NA in the last row of "Bohater" column with "Linda Hamilton"
+aktorzy$Bohater[last_row_index] <- "Linda Hamilton"
+
+# Replace NA in the last row of "Rola" column with "Linda Hamilton"
+aktorzy$Rola[last_row_index] <- "Linda Hamilton"
+
+print(aktorzy)
+
+
+```
+Serial telewizyjny "Stranger Things" zdobył ogromną popularność od swojej premiery w  2016 r. Światowy fenomen, którego akcja rozgrywa się w Hawkins, przyciągnął miliony widzów dzięki fascynującej fabule, intrygującym postaciom oraz wyjątkowej atmosferze lat 80.
+
+Niniejszy projekt ma na celu głębszą analizę danych związanych z serialem "Stranger Things", aby zrozumieć różne aspekty jego odbioru oraz ocen społeczności. Przyjrzymy się zarówno ocenom poszczególnych sezonów, jak i specyfice odcinków, ich czasowi trwania, a także próbujemy znaleźć związki między różnymi danymi.
+
+Analiza danych pozwoli nam zgłębić pytania dotyczące popularności poszczególnych odcinków, dynamiki ocen w kolejnych sezonach, a także potencjalnych czynników wpływających na odbiór serialu. Oto kilka kluczowych obszarów, które zostaną omówione:
+
+```{r,  echo=FALSE}
+library(ggplot2)
+
+sezon <- c(1, 2, 3, 4)
+ocena <- c(8.6, 8.0, 7.7, 8.1)
+
+sezony<- data.frame(sezon, ocena)
+
+ggplot(sezony, aes(x = sezon, y = ocena)) +
+  geom_line() +
+  labs(title = "Oceny dla poszczególnych sezonów Stranger Things",
+       x = "Numer sezonu",
+       y = "Średnia ocena")
+
+```
+
+
+
+
+Wykres ukazuje, że sezon 1 zdobył najwyższe oceny wśród widzów. Ten znaczący sukces może być rezultatem wyjątkowej fabuły, która zdołała zaskoczyć i zachwycić widzów. Sezon ten wydaje się wyróżniać dzięki niespotykanej dotąd narracji, która zjednała serca widzów, potwierdzając, że oryginalność fabuły ma kluczowe znaczenie dla pozytywnego odbioru.
+
+
+```{r,  echo=FALSE,warning=FALSE}
+pastel_colors <- c("#96c6ff", "#ffb6b9", "#90EE90", "#FFD700")  
+
+ggplot(Odcinki, aes(x = factor(Sezon), y = IloscOcen, fill = Sezon)) +
+  geom_bar(stat = "identity", color = "black", size = 0.5) +  
+  
+  labs(title = "Ilość ocen dla każdego sezonu", x = "Sezon", y = "Ilość ocen") +
+  scale_fill_manual(values = pastel_colors) +  # Ustawienie pastelowych kolorów
+  theme_minimal() 
+```
+
+
+
+Wyraźnie można zauważyć, że pierwszy sezon serialu cieszył się największym zainteresowaniem ze strony widzów.
+
+
+```{r,  echo=FALSE}
+wykres <- ggplot(sezony, aes(x = factor(sezon), y = ocena)) +
+  geom_bar(stat = "summary", fun = "mean", fill = "blue", color = "black") +
+  labs(title = "Średnia ocena od sezonu", x = "Sezon", y = "Średnia Ocena") +
+  theme_minimal()
+
+
+print(wykres)
+```
+
+
+
+
+Dodałam też średnią ocenę  za każdy z sezonów, aby potwirdzić , że 1 sezon plasuje się najwyżej
+
+
+
+```{r,  echo=FALSE}
+wykres_punktowy_tytul_ocena <- ggplot(Odcinki, aes(x = sezon, y = Ocena)) +
+  geom_point(color = "orange", size = 3) +
+  labs(title = "Zależność oceny od tytułu odcinka",
+       x = "Tytuł odcinka",
+       y = "Ocena") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
+  scale_x_discrete(labels = Odcinki$Tytul)
+print(wykres_punktowy_tytul_ocena)
+```
+
+
+
+```{r,  echo=FALSE,warning=FALSE}
+wykres_ggplot <- ggplot(Odcinki, aes(x = odcinki, y = IloscOcen, fill = sezon)) +
+  geom_col(position = "identity", alpha = 0.7) +
+  labs(title = "Ilość ocen dla każdego odcinka", x = "Odcinek", y = "Ilość ocen") +
+  theme_minimal()
+
+
+wykres_ggplot <- wykres_ggplot +
+  scale_x_continuous(breaks = seq(1, max(Odcinki$odcinki), by = 1),
+                     labels = as.character(seq(1, max(Odcinki$odcinki), by = 1)))
+
+wykres_interaktywny3 <- ggplotly(wykres_ggplot)
+
+wykres_interaktywny3
+```
+Wykres ilustruje, że pierwszy odcinek pierwszego sezonu Stranger Things zdobył największą liczbę ocen spośród wszystkich odcinków. To sugeruje, że ten konkretny odcinek cieszył się największą popularnością wśród widzów
+
+
+
+```{r,  echo=FALSE}
+ggplot(Odcinki, aes(x = factor(odcinki), y = Czas, fill = factor(odcinki))) +
+  geom_point(position = "jitter", size = 3, alpha = 0.7) +  
+  labs(title = "Rozkład czasu trwania odcinków dla każdego sezonu",
+       x = "Odcinek", y = "Czas trwania (minuty)") +
+  theme_minimal()
+
+```
+
+
+
+
+
+Warto zwrócić uwagę na ciekawą tendencję - finałowe odcinki sezonów często wydają się być dłuższe niż te, które rozpoczynają serię. To może świadczyć o dążeniu twórców do starannego zakończenia sezonu, dostarczając widzom bardziej rozbudowaną narrację, dramatyczne zwroty akcji lub ekscytujące momenty, co z kolei może wpływać na ich długość.
+
+
+```{r,  echo=FALSE,warning=FALSE}
+options(warn = -1)
+wykres_ggplot <- ggplot(Odcinki, aes(x = Ocena, y = IloscOcen, fill = sezon)) +
+  geom_col(position = "identity", alpha = 0.7) +  
+  labs(title = "Związek między ilością ocen a oceną", x = "Ocena", y = "Ilość ocen") +
+  theme_minimal()
+
+wykres_interaktywny <- ggplotly(wykres_ggplot)
+
+wykres_interaktywny
+```
+Wychodzi na to, że największą popularnością cieszą się odcinki oceniane na poziomie 8,2. Te konkretne oceny zostały przyznane odcinkom o następujących numerach: . Wydaje się, że widzowie szczególnie doceniają te odcinki, co może wynikać z ich wyjątkowej jakości.
+
+
+
+```{r,  echo=FALSE,warning=FALSE,message=FALSE}
+wykres_ggplot <- ggplot(Odcinki, aes(x = Czas, y = Ocena, color = factor(sezon))) +
+  geom_point(aes(selected = TRUE), interactive = TRUE) +  
+  geom_smooth(method = "lm", se = FALSE) +
+  labs(title = "Korelacja między oceną a czasem trwania odcinka", x = "Czas trwania (minuty)", y = "Ocena") +
+  theme_minimal()
+
+wykres_interaktywny4 <- ggplotly(wykres_ggplot)
+
+wykres_interaktywny4
+
+
+```
+
+
+```{r,  echo=FALSE,warning=FALSE}
+histogram_czasu_trwania <- ggplot(Odcinki, aes(x = Czas, fill = as.factor(..count..))) +
+  geom_histogram(binwidth = 10, color = "black",show.legend = FALSE) +
+  labs(title = "Rozkład czasu trwania odcinków",
+       x = "Czas trwania (minuty)",
+       y = "Liczba odcinków") +
+  theme_minimal()
+
+histogram_interaktywny <- ggplotly(histogram_czasu_trwania, dynamicTicks = TRUE) %>%
+  style(hoverinfo = "text") %>%
+  colorbar(title = "Liczba odcinków")
+
+histogram_interaktywny
+```
+
+Rozkład czasu trwania odcinków ukazuje, jak długo trwają poszczególne odcinki serialu. Na wykresie interaktywnym możesz zauważyć, że większość odcinków ma czas trwania skupiony w pewnym przedziale, który został podzielony na szerokość binów (10 minut w tym przypadku). Dzięki temu możesz zobaczyć, jakie są dominujące przedziały czasowe.
+
+Wnioski z tego wykresu mogą obejmować:
+
+Dominujący czas trwania: Na podstawie najwyższego słupka możesz zauważyć, jaki czas trwania jest najczęstszy wśród odcinków.
+
+Zróżnicowanie czasu trwania: Widoczne różne kolumny pokazują zróżnicowanie czasu trwania, co może świadczyć o różnorodności serialu pod względem długości odcinków.
+
+
+```{r,  echo=FALSE}
+ggplot(Odcinki, aes(x = Data, y = Ocena, group = 1)) +
+  geom_line(color = "blue", size = 1) +
+  geom_point(color = "blue", size = 3) +
+  labs(title = "Zmiana oceny w czasie dla wybranego sezonu",
+       x = "Data",
+       y = "Ocena") +
+  theme_minimal()
+
+```
+
+
+Wykres ilustruje zmienność ocen dla wybranego sezonu. Punkty na wykresie reprezentują momenty wzrostu i spadku ocen, co może wskazywać na istotne zmiany w postrzeganiu poszczególnych odcinków. Warto zauważyć, że początkowe sezony prezentują się szczególnie korzystnie, otrzymując najwyższe oceny. 
+
+
+```{r,  echo=FALSE}
+wykres_liniowy_ocen <- ggplot(Odcinki, aes(x = factor(Data), y = ilosc_oceny, color = factor(Sezon))) +
+  geom_line() +
+  geom_point() +
+  labs(title = "Zmiana oceny w zależności od daty",
+       x = "Data",
+       y = "Ilosc ocen",
+       color = "Sezon") +
+  theme_minimal()
+
+print(wykres_liniowy_ocen)
+```
+
+
+
+Wykres przedstawia, jak zmienia się ilość ocen w zależności od daty. Punkty reprezentują konkretne pomiary ilości ocen w poszczególnych punktach czasu.
+ 
+
+Widzimy, że pod względem ilości ocen wyróżnia się sezon 1.
+
+
+```{r,  echo=FALSE}
+wykres_data_czas <- ggplot(Odcinki, aes(x = Data, y = Czas)) +
+   geom_point(color = "blue", size = 2) +
+   labs(title = "Zależność daty od czasu trwania odcinka",
+        x = "Data",
+        y = "Czas trwania (minuty)") +
+   theme_minimal()
+
+print(wykres_data_czas)
+```
+
+ 
+
+
+```{r,  echo=FALSE}
+aktorzy$Rola <- factor(aktorzy$Rola, levels = unique(aktorzy$Rola))
+
+wykres_punktowy <- ggplot(aktorzy, aes(x = Rola, y = ilosc_granych_odcinkow)) +
+  geom_point(size = 3, color = "blue") +
+  labs(title = "Relacja między rolą a ilością zagranych odcinków",
+       x = "Rola",
+       y = "Ilość zagranych odcinków") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 1, margin = margin(t = 10)),
+        axis.ticks.x = element_blank(), 
+        )
+print(wykres_punktowy)
+
+```
+
+
+Wszyscy kochamy naszych ulubionych bohaterów z Stranger Things, a niektórzy z nich zdają się być nieodłączną częścią każdego sezonu. W imponującej liczbie 34 odcinków, postacie takie jak Joyce Byers, Komendant Jim Hopper, Mike Wheeler, Eleven, Dustin Henderson, Lucas Sinclair, Nancy Wheeler, Jonathan Byers, Steve Harrington oraz Karen Wheeler, grane przez utalentowanych aktorów, towarzyszą nam w każdej części tej fascynującej historii. To potwierdza, że ich obecność stanowi niezwykle istotny element dla fabuły, co przekłada się na trwałą i silną więź z widzami.
+
+
+
+```{r,  echo=FALSE}
+library(ggplot2)
+
+wykres_aktorow <- ggplot(aktorzy, aes(x = ilosc_granych_odcinkow)) +
+  geom_bar(stat = "count", fill = "darkblue", color = "black") +
+  labs(title = "Liczba aktorów w zależności od liczby zagranych odcinków",
+       x = "Ilość zagranych odcinków",
+       y = "Liczba aktorów") +
+  theme_minimal() +
+  scale_x_continuous(breaks = seq(0, 35, by = 1))+
+  scale_y_continuous(breaks = seq(0, 14, by = 1))
+
+print(wykres_aktorow)
+```
+
+
+
+
+
+
+
+
+
