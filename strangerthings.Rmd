@@ -1,6 +1,6 @@
 ---
 title: "Stranger Things"
-author: ""
+author: "Paulina"
 date: 
 output: html_document
 ---
